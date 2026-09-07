@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Apnea Table</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/fontawesome.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/brands.min.css">
+<style>
+  :root{
+    --deep:#0d1d27;
+    --water:#173447;
+    --foam:#e9f3f6;
+    --mist:#8fa9b6;
+    --breathe:#6fd3dc;
+    --hold:#f0a35a;
+    --line:rgba(233,243,246,.14);
+    --radius:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:"Bricolage Grotesque",system-ui,-apple-system,sans-serif;
+    background:var(--deep);
+    color:var(--foam);
+    -webkit-font-smoothing:antialiased;
+    min-height:100dvh;
+    display:flex;flex-direction:column;
+  }
+  button,input{font:inherit;color:inherit}
+  button{cursor:pointer;background:none;border:0}
+  button:focus-visible,input:focus-visible{outline:2px solid var(--breathe);outline-offset:2px}
+
+  /* ---------- stage (hero timer) ---------- */
+  .stage{
+    position:relative;
+    min-height:min(54dvh,560px);
+    padding:64px 16px 26px;
+    overflow:hidden;
+    display:flex;align-items:center;justify-content:center;
+    flex-direction:column;
+    isolation:isolate;
+  }
+  .stage .fill{
+    position:absolute;inset:0;z-index:-1;
+    background:linear-gradient(180deg,rgba(111,211,220,.55),rgba(23,52,71,.95));
+    transform-origin:bottom;
+    transform:scaleY(0);
+    transition:transform .25s linear, background .6s;
+  }
+  .stage.hold .fill{
+    background:linear-gradient(180deg,rgba(240,163,90,.45),rgba(23,52,71,.95));
+  }
+  .stage .fill::before{
+    content:"";position:absolute;left:0;right:0;top:-12px;height:24px;
+    background:radial-gradient(ellipse at 50% 100%,rgba(233,243,246,.35),transparent 70%);
+    opacity:.6;
+  }
+  .phase{
+    font-size:clamp(18px,2.6vw,24px);
+    font-weight:500;letter-spacing:.01em;
+    color:var(--mist);
+    transition:color .3s;
+  }
+  .stage.breathe .phase{color:var(--breathe)}
+  .stage.hold .phase{color:var(--hold)}
+  .clock{
+    font-size:clamp(88px,min(22vw,24dvh),200px);
+    font-weight:300;line-height:.95;
+    font-variation-settings:"opsz" 96;
+    letter-spacing:-.04em;
+    font-variant-numeric:tabular-nums;
+  }
+  .meta{
+    margin-top:12px;
+    color:var(--mist);
+    font-size:15px;
+    display:flex;gap:18px;
+  }
+  .controls{
+    margin-top:26px;
+    display:flex;justify-content:center;gap:12px;
+  }
+  .btn{
+    padding:12px 26px;border-radius:999px;
+    font-weight:600;font-size:16px;
+    border:1px solid var(--line);
+    background:rgba(233,243,246,.06);
+    transition:background .15s,transform .1s;
+  }
+  .btn:active{transform:scale(.97)}
+  .btn.primary{background:var(--foam);color:var(--deep);border-color:var(--foam)}
+  .btn.primary:hover{background:#fff}
+  .btn.quiet:hover{background:rgba(233,243,246,.12)}
+
+  /* ---------- table ---------- */
+  .sheet{
+    flex:1;
+    background:var(--water);
+    border-top-left-radius:24px;border-top-right-radius:24px;
+    padding:22px 18px 40px;
+    max-width:720px;width:100%;margin:0 auto;
+  }
+  h2{font-size:15px;font-weight:600;color:var(--mist);margin:22px 0 10px}
+  h2:first-child{margin-top:0}
+
+  .rows{display:flex;flex-direction:column;gap:6px}
+  .row{
+    display:grid;
+    grid-template-columns:28px 1fr 1fr 34px;
+    gap:8px;align-items:center;
+    padding:8px 10px;
+    border-radius:var(--radius);
+    background:rgba(13,29,39,.45);
+    border:1px solid transparent;
+    transition:border-color .2s,background .2s;
+  }
+  .row.active{border-color:var(--foam);background:rgba(13,29,39,.8)}
+  .row.done{opacity:.45}
+  .row .idx{color:var(--mist);font-size:14px;font-variant-numeric:tabular-nums}
+  .field{position:relative}
+  .field input{
+    width:100%;
+    background:transparent;
+    border:0;border-bottom:1px solid var(--line);
+    padding:6px 0 6px 0;
+    font-size:20px;font-weight:500;
+    font-variant-numeric:tabular-nums;
+    -moz-appearance:textfield;
+  }
+  .field input::-webkit-outer-spin-button,.field input::-webkit-inner-spin-button{-webkit-appearance:none}
+  .field input:focus{border-bottom-color:var(--breathe)}
+  .field .tag{
+    position:absolute;right:0;bottom:8px;
+    font-size:12px;color:var(--mist);pointer-events:none;
+  }
+  .row .del{
+    width:34px;height:34px;border-radius:50%;
+    color:var(--mist);font-size:20px;line-height:1;
+    display:grid;place-items:center;
+  }
+  .row .del:hover{background:rgba(233,243,246,.1);color:var(--foam)}
+  .head{
+    display:grid;grid-template-columns:28px 1fr 1fr 34px;gap:8px;
+    padding:0 10px 6px;font-size:13px;color:var(--mist);
+  }
+  .head span:nth-child(2){color:var(--breathe)}
+  .head span:nth-child(3){color:var(--hold)}
+  .rowactions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .link{
+    padding:9px 14px;border-radius:999px;
+    font-size:14px;font-weight:500;
+    border:1px dashed var(--line);color:var(--mist);
+  }
+  .link:hover{color:var(--foam);border-style:solid}
+
+  .settings{
+    display:grid;grid-template-columns:1fr 1fr;gap:10px;
+  }
+  .set{
+    background:rgba(13,29,39,.45);
+    border-radius:var(--radius);
+    padding:12px 14px;
+    display:flex;flex-direction:column;gap:4px;
+  }
+  .set label{font-size:13px;color:var(--mist)}
+  .set .field input{font-size:18px}
+  .toggle{
+    display:flex;align-items:center;justify-content:space-between;
+    gap:10px;cursor:pointer;
+  }
+  .toggle input{appearance:none;width:40px;height:22px;border-radius:999px;
+    background:rgba(233,243,246,.18);position:relative;transition:background .2s;flex:none}
+  .toggle input::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;
+    background:var(--foam);transition:transform .2s}
+  .toggle input:checked{background:var(--breathe)}
+  .toggle input:checked::after{transform:translateX(18px)}
+  .checks{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+  .chk{cursor:pointer;position:relative}
+  .chk input{position:absolute;opacity:0;width:0;height:0}
+  .chk span{display:inline-block;padding:7px 12px;border-radius:999px;border:1px solid var(--line);
+    font-size:15px;font-variant-numeric:tabular-nums;color:var(--mist);transition:background .15s,color .15s}
+  .chk input:checked+span{background:var(--foam);color:var(--deep);border-color:var(--foam)}
+  .chk input:focus-visible+span{outline:2px solid var(--breathe);outline-offset:2px}
+  .total{font-size:14px;color:var(--mist);margin-top:14px}
+  .voicebar{display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap}
+  .status{font-size:13px;color:var(--mist)}
+  .status.bad{color:var(--hold)}
+  .total b{color:var(--foam);font-weight:600}
+  .ko{color:var(--mist);font-weight:400;font-size:.85em;opacity:.8}
+  h2 .ko,.link .ko{font-size:.9em}
+
+  /* ---------- corner promo tag ---------- */
+  .promo{
+    position:absolute;top:14px;right:14px;z-index:2;
+    display:flex;align-items:center;gap:9px;
+    padding:6px 14px 6px 8px;border-radius:999px;
+    background:rgba(13,29,39,.55);
+    border:1px solid var(--line);
+    color:var(--foam);text-decoration:none;
+    backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+    font-size:13px;font-weight:600;letter-spacing:.01em;
+    transition:background .2s,border-color .2s,transform .2s;
+  }
+  .promo:hover{background:rgba(13,29,39,.85);border-color:rgba(233,243,246,.35);transform:translateY(-1px)}
+  .promo:active{transform:translateY(0)}
+  .promo .ico{
+    font-size:20px;line-height:1;color:#ff0000;flex:none;margin-left:4px;
+  }
+  .promo small{
+    display:block;font-size:10px;font-weight:500;color:var(--mist);line-height:1.1;margin-top:1px;
+  }
+  @media (max-width:480px){
+    .promo{top:10px;right:10px;padding:5px 12px 5px 7px;font-size:12px}
+    .stage{padding-top:58px}
+  }
+  @media (max-height:560px){
+    .stage{padding:52px 16px 18px}
+    .controls{margin-top:14px}
+    .meta{margin-top:6px}
+  }
+
+  @media (max-width:480px){
+    .settings{grid-template-columns:1fr}
+    .meta{font-size:14px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .stage .fill{transition:none}
+  }
+</style>
+</head>
+<body>
+
+<section class="stage" id="stage">
+  <div class="fill" id="fill"></div>
+  <a class="promo" href="https://www.youtube.com/channel/UCXn9k8FVWpzJ8Y-NTamRtLw" target="_blank" rel="noopener" aria-label="명랑다이브 YouTube 채널">
+    <i class="fa-brands fa-youtube ico" aria-hidden="true"></i>
+    <span>명랑다이브<small>Freediving on YouTube</small></span>
+  </a>
+  <div class="phase" id="phase">Ready</div>
+  <div class="clock" id="clock">0:00</div>
+  <div class="meta">
+    <span id="roundInfo">—</span>
+    <span id="totalLeft"></span>
+  </div>
+  <div class="controls">
+    <button class="btn primary" id="startBtn">Start</button>
+    <button class="btn quiet" id="resetBtn">Reset</button>
+  </div>
+</section>
+
+<section class="sheet">
+  <h2>Table <span class="ko">(테이블)</span></h2>
+  <div class="head"><span>#</span><span>Breathe <span class="ko">(숨 쉬기)</span></span><span>Hold <span class="ko">(숨 참기)</span></span><span></span></div>
+  <div class="rows" id="rows"></div>
+  <div class="rowactions">
+    <button class="link" id="addRow">+ Add row <span class="ko">(행 추가)</span></button>
+    <button class="link" id="dupRow">Duplicate last <span class="ko">(마지막 행 복제)</span></button>
+    <button class="link" id="clearRows">Clear all <span class="ko">(모두 지우기)</span></button>
+  </div>
+  <div class="total">Total <b id="totalTime">0:00</b> <span class="ko">(전체 시간)</span></div>
+
+  <h2>Sound <span class="ko">(소리)</span></h2>
+  <div class="settings">
+    <div class="set">
+      <label>Announce during breathe <span class="ko">(숨 쉬기 알림)</span></label>
+      <div class="checks">
+        <label class="chk"><input type="checkbox" data-phase="breathe" data-mark="60"><span>60 s</span></label>
+        <label class="chk"><input type="checkbox" data-phase="breathe" data-mark="30" checked><span>30 s</span></label>
+        <label class="chk"><input type="checkbox" data-phase="breathe" data-mark="10" checked><span>10 s</span></label>
+        <label class="chk"><input type="checkbox" data-phase="breathe" data-mark="5"><span>5 s</span></label>
+      </div>
+      <label style="margin-top:10px">Announce during hold <span class="ko">(숨 참기 알림)</span></label>
+      <div class="checks">
+        <label class="chk"><input type="checkbox" data-phase="hold" data-mark="60" checked><span>60 s</span></label>
+        <label class="chk"><input type="checkbox" data-phase="hold" data-mark="30" checked><span>30 s</span></label>
+        <label class="chk"><input type="checkbox" data-phase="hold" data-mark="10" checked><span>10 s</span></label>
+        <label class="chk"><input type="checkbox" data-phase="hold" data-mark="5"><span>5 s</span></label>
+      </div>
+      <label class="toggle" style="margin-top:10px"><span>Count 3·2·1 <span class="ko">(마지막 3초)</span></span><input type="checkbox" id="final" checked></label>
+    </div>
+    <div class="set">
+      <label class="toggle"><span>Voice <span class="ko">(음성)</span></span><input type="checkbox" id="voice" checked></label>
+      <label class="toggle" style="margin-top:8px"><span>Beep <span class="ko">(비프음)</span></span><input type="checkbox" id="beep" checked></label>
+      <label class="toggle" style="margin-top:8px"><span>Loop table <span class="ko">(끝나면 반복)</span></span><input type="checkbox" id="loop"></label>
+    </div>
+  </div>
+  <div class="voicebar">
+    <button class="link" id="testVoice">Test voice <span class="ko">(음성 테스트)</span></button>
+    <span id="voiceStatus" class="status">Loading voice files…</span>
+  </div>
+</section>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const stage=$('stage'), fill=$('fill'), phaseEl=$('phase'), clock=$('clock');
+  const roundInfo=$('roundInfo'), totalLeft=$('totalLeft'), totalTime=$('totalTime');
+  const rowsEl=$('rows');
+  const startBtn=$('startBtn'), resetBtn=$('resetBtn');
+  const S = { final:$('final'), voice:$('voice'), beep:$('beep'), loop:$('loop') };
+  const markBoxes=[...document.querySelectorAll('input[data-mark]')];
+
+  // ---------- persistence (fails gracefully) ----------
+  const KEY='apnea-table-v3';
+  const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch { return null; } };
+  const save = () => {
+    const data = { rows: readRows(), marks: markBoxes.filter(b=>b.checked).map(b=>b.dataset.phase+':'+b.dataset.mark), settings: Object.fromEntries(Object.entries(S).map(([k,el]) => [k, el.type==='checkbox' ? el.checked : el.value])) };
+    try { localStorage.setItem(KEY, JSON.stringify(data)); } catch {}
+  };
+
+  // ---------- rows ----------
+  const fmt = s => `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+  function addRow(breathe=60, hold=60){
+    const div=document.createElement('div'); div.className='row';
+    div.innerHTML=`<span class="idx"></span>
+      <div class="field"><input type="number" min="0" inputmode="numeric" class="b" value="${breathe}"><span class="tag">s</span></div>
+      <div class="field"><input type="number" min="0" inputmode="numeric" class="h" value="${hold}"><span class="tag">s</span></div>
+      <button class="del" title="Delete row" aria-label="Delete row">×</button>`;
+    div.querySelector('.del').onclick=()=>{ div.remove(); renumber(); };
+    div.querySelectorAll('input').forEach(i=>i.addEventListener('input', renumber));
+    rowsEl.appendChild(div); renumber();
+  }
+  function readRows(){
+    return [...rowsEl.querySelectorAll('.row')].map(r=>({
+      breathe: Math.max(0, parseInt(r.querySelector('.b').value)||0),
+      hold:    Math.max(0, parseInt(r.querySelector('.h').value)||0)
+    }));
+  }
+  function renumber(){
+    [...rowsEl.querySelectorAll('.row')].forEach((r,i)=>r.querySelector('.idx').textContent=i+1);
+    const total=readRows().reduce((a,r)=>a+r.breathe+r.hold,0);
+    totalTime.textContent=fmt(total);
+    save();
+  }
+  $('addRow').onclick=()=>{ const rs=readRows(); const last=rs[rs.length-1]; addRow(last?last.breathe:60, last?last.hold+15:60); };
+  $('dupRow').onclick=()=>{ const rs=readRows(); const last=rs[rs.length-1]; if(last) addRow(last.breathe,last.hold); };
+  $('clearRows').onclick=()=>{ rowsEl.innerHTML=''; renumber(); };
+  [...Object.values(S), ...markBoxes].forEach(el=>el.addEventListener('change', save));
+
+  // ---------- audio ----------
+  let ctx=null;
+  function ensureAudio(){ if(!ctx){ try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); }catch{} } if(ctx&&ctx.state==='suspended') ctx.resume(); }
+  function beep(freq=880, dur=0.12, gain=0.25){
+    if(!ctx||!S.beep.checked) return;
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(gain, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+dur);
+    o.connect(g).connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur);
+  }
+  // pre-recorded clips in ./sounds (Piper TTS, LibriTTS voice, CC BY 4.0)
+  const CLIPS=['breathe','hold','60','30','10','5','4','3','2','1','done'];
+  const src={}; CLIPS.forEach(n=>src[n]=`sounds/${n}.mp3`);
+  // prefetch into memory so playback is instant; keep the plain URL if fetch fails
+  const voiceStatus=$('voiceStatus');
+  let loadedClips=0;
+  Promise.all(CLIPS.map(n=>fetch(src[n]).then(r=>r.ok?r.blob():Promise.reject(r.status)).then(b=>{src[n]=URL.createObjectURL(b); loadedClips++;}).catch(()=>{})))
+    .then(()=>{
+      if(loadedClips===CLIPS.length){ voiceStatus.textContent='Voice files ready'; }
+      else { voiceStatus.classList.add('bad');
+        voiceStatus.textContent=`Voice files not found (${loadedClips}/${CLIPS.length}) — expected at ${new URL('sounds/', location.href).pathname}. Beep only.`; }
+    });
+  // one shared element: unlocked by the first play() inside the Start tap, then reusable (iOS)
+  const player=new Audio(); player.preload='auto';
+  let onEnded=null;
+  player.addEventListener('ended',()=>{ const f=onEnded; onEnded=null; if(f) f(); });
+  player.addEventListener('error',()=>{ onEnded=null; beep(880,0.12); });
+  function stopClips(){ onEnded=null; if(!player.paused) player.pause(); }
+  function speak(name, then){
+    if(!S.voice.checked || !src[name]) return false;
+    stopClips(); onEnded=then||null;
+    player.src=src[name]; player.currentTime=0;
+    player.play().catch(()=>{ onEnded=null; beep(880,0.12); });
+    return true;
+  }
+  // voice on → play clip for remaining seconds, else beep (음성 켜짐: 파일 재생, 아니면 비프)
+  function announce(sec, isHold){
+    if(!speak(String(sec))) beep(isHold?660:880, 0.1);
+  }
+
+  // ---------- timer engine ----------
+  let plan=[], step=-1, remaining=0, stepLen=0, running=false, timerId=null, endAt=0, wakeLock=null;
+
+  function buildPlan(){
+    plan=[];
+    readRows().forEach((r,i)=>{
+      if(r.breathe>0) plan.push({type:'breathe', sec:r.breathe, round:i+1});
+      if(r.hold>0)    plan.push({type:'hold',    sec:r.hold,    round:i+1});
+    });
+    return plan.length>0;
+  }
+  const totalRows = () => readRows().length;
+
+  function render(){
+    const p=plan[step];
+    stage.className='stage '+(p?p.type:'');
+    phaseEl.textContent = p ? (p.type==='breathe'?'Breathe':'Hold') : (running?'':'Ready');
+    clock.textContent=fmt(remaining);
+    if(p){
+      const frac=remaining/stepLen;
+      fill.style.transform=`scaleY(${p.type==='breathe' ? 1-frac : frac})`;
+      roundInfo.textContent=`Round ${p.round} / ${totalRows()}`;
+      const left=plan.slice(step+1).reduce((a,x)=>a+x.sec,0)+remaining;
+      totalLeft.textContent=`${fmt(left)} left`;
+    } else {
+      fill.style.transform='scaleY(0)';
+      roundInfo.textContent='—'; totalLeft.textContent='';
+    }
+    rowsEl.querySelectorAll('.row').forEach((r,i)=>{
+      r.classList.toggle('active', p && p.round===i+1);
+      r.classList.toggle('done',   p && i+1<p.round);
+    });
+  }
+
+  function beginStep(){
+    step++;
+    if(step>=plan.length){
+      if(S.loop.checked && buildPlan()){ step=0; }
+      else { finish(); return; }
+    }
+    const p=plan[step];
+    stepLen=remaining=p.sec;
+    endAt=Date.now()+p.sec*1000;
+    speak(p.type==='breathe'?'breathe':'hold');
+    beep(p.type==='breathe'?523:784, 0.25, 0.3);
+    render();
+  }
+
+  function tick(){
+    if(!running) return;
+    const p=plan[step];
+    const next=Math.ceil((endAt-Date.now())/1000);
+    if(next!==remaining){
+      remaining=Math.max(0,next);
+      const marks=new Set(markBoxes.filter(b=>b.checked && b.dataset.phase===p.type).map(b=>+b.dataset.mark));
+      if(remaining>0 && remaining!==stepLen){
+        if(S.final.checked && remaining<=3) { S.voice.checked ? speak(String(remaining)) : beep(p.type==='hold'?740:988,0.08); }
+        else if(marks.has(remaining)) announce(remaining, p.type==='hold');
+      }
+      render();
+      if(remaining<=0){ beginStep(); }
+    }
+    timerId=setTimeout(tick, 100);
+  }
+
+  async function start(){
+    if(running) return;
+    if(!buildPlan()){ phaseEl.textContent='Add a row first'; return; }
+    ensureAudio();
+    running=true; step=-1;
+    startBtn.textContent='Pause';
+    try{ wakeLock=await navigator.wakeLock?.request('screen'); }catch{}
+    beginStep(); tick();
+  }
+  function pause(){
+    running=false; clearTimeout(timerId);
+    startBtn.textContent='Resume';
+    phaseEl.textContent='Paused';
+    stopClips();
+  }
+  function resume(){
+    running=true; endAt=Date.now()+remaining*1000;
+    startBtn.textContent='Pause';
+    render(); tick();
+  }
+  function finish(){
+    running=false; clearTimeout(timerId); step=-1; remaining=0;
+    startBtn.textContent='Start';
+    render(); phaseEl.textContent='Breathe';
+    stage.className='stage breathe';
+    beep(523,0.25,0.3);
+    speak('breathe', ()=>speak('done'));
+    wakeLock?.release?.(); wakeLock=null;
+  }
+  function reset(){
+    running=false; clearTimeout(timerId); step=-1; remaining=0; plan=[];
+    startBtn.textContent='Start';
+    stopClips();
+    render();
+    wakeLock?.release?.(); wakeLock=null;
+  }
+  startBtn.onclick=()=>{ if(running) pause(); else if(step>=0 && remaining>0) resume(); else start(); };
+  $('testVoice').onclick=()=>{ ensureAudio(); if(!speak('breathe', ()=>speak('10'))) beep(880,0.15); };
+  resetBtn.onclick=reset;
+
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden && running) render(); });
+
+  // ---------- init ----------
+  const saved=load();
+  if(saved && saved.rows && saved.rows.length){
+    saved.rows.forEach(r=>addRow(r.breathe,r.hold));
+    Object.entries(saved.settings||{}).forEach(([k,v])=>{ if(S[k]){ if(S[k].type==='checkbox') S[k].checked=v; else S[k].value=v; } });
+    if(Array.isArray(saved.marks)) markBoxes.forEach(b=>b.checked=saved.marks.includes(b.dataset.phase+':'+b.dataset.mark));
+  } else {
+    // default CO2 table: breathe time decreases (기본 CO2 테이블)
+    [[120,60],[105,60],[90,60],[75,60],[60,60],[45,60]].forEach(([b,h])=>addRow(b,h));
+  }
+  render();
+})();
+</script>
+</body>
+</html>
