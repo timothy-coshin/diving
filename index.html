@@ -186,7 +186,11 @@
   .chk input:focus-visible+span{outline:2px solid var(--breathe);outline-offset:2px}
   .total{font-size:14px;color:var(--mist);margin-top:14px}
   .voicebar{display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap}
+  .presetbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .presetbar select{background:rgba(13,29,39,.6);border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-size:15px;font-weight:600;color:var(--foam);max-width:100%}
   .status{font-size:13px;color:var(--mist)}
+  .sel{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--mist)}
+  .sel select{background:rgba(13,29,39,.6);border:1px solid var(--line);border-radius:999px;padding:7px 12px;font-size:15px;font-weight:600;color:var(--foam)}
   .status.bad{color:var(--hold)}
   .total b{color:var(--foam);font-weight:600}
   .ko{color:var(--mist);font-weight:400;font-size:.85em;opacity:.8}
@@ -262,6 +266,15 @@
   </div>
   <div class="total">Total <b id="totalTime">0:00</b> <span class="ko">(전체 시간)</span></div>
 
+  <h2>Saved tables <span class="ko">(저장된 테이블)</span></h2>
+  <div class="presetbar">
+    <select id="presetSel" aria-label="Saved tables"><option value="">Choose a table…</option></select>
+    <button class="link" id="savePreset">Save current as… <span class="ko">(현재 테이블 저장)</span></button>
+    <button class="link" id="deletePreset">Delete <span class="ko">(삭제)</span></button>
+    <button class="link" id="copyLink">Copy link <span class="ko">(링크 복사)</span></button>
+  </div>
+  <div class="status" id="presetStatus" style="margin-top:8px">Tables are kept in this browser. Copy a link to move one to another device. <span class="ko">(브라우저에 저장됨 · 다른 기기로는 링크로 옮기세요)</span></div>
+
   <h2>Sound <span class="ko">(소리)</span></h2>
   <div class="settings">
     <div class="set">
@@ -288,6 +301,9 @@
     </div>
   </div>
   <div class="voicebar">
+    <label class="sel">Voice <span class="ko">(목소리)</span>
+      <select id="voiceSet"><option value="sounds">A</option><option value="sounds-b">B</option><option value="sounds-c">C</option></select>
+    </label>
     <button class="link" id="testVoice">Test voice <span class="ko">(음성 테스트)</span></button>
     <span id="voiceStatus" class="status">Loading voice files…</span>
   </div>
@@ -300,11 +316,11 @@
   const roundInfo=$('roundInfo'), totalLeft=$('totalLeft'), totalTime=$('totalTime');
   const rowsEl=$('rows');
   const startBtn=$('startBtn'), resetBtn=$('resetBtn');
-  const S = { final:$('final'), voice:$('voice'), beep:$('beep'), loop:$('loop') };
+  const S = { final:$('final'), voice:$('voice'), beep:$('beep'), loop:$('loop'), voiceSet:$('voiceSet') };
   const markBoxes=[...document.querySelectorAll('input[data-mark]')];
 
   // ---------- persistence (fails gracefully) ----------
-  const KEY='apnea-table-v3';
+  const KEY='apnea-table-v4';
   const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch { return null; } };
   const save = () => {
     const data = { rows: readRows(), marks: markBoxes.filter(b=>b.checked).map(b=>b.dataset.phase+':'+b.dataset.mark), settings: Object.fromEntries(Object.entries(S).map(([k,el]) => [k, el.type==='checkbox' ? el.checked : el.value])) };
@@ -338,6 +354,40 @@
   $('addRow').onclick=()=>{ const rs=readRows(); const last=rs[rs.length-1]; addRow(last?last.breathe:60, last?last.hold+15:60); };
   $('dupRow').onclick=()=>{ const rs=readRows(); const last=rs[rs.length-1]; if(last) addRow(last.breathe,last.hold); };
   $('clearRows').onclick=()=>{ rowsEl.innerHTML=''; renumber(); };
+  function setRows(rs){ rowsEl.innerHTML=''; rs.forEach(r=>addRow(r.breathe,r.hold)); renumber(); }
+
+  // ---------- saved tables (presets) ----------
+  const PKEY='apnea-presets-v1';
+  const presetSel=$('presetSel'), presetStatus=$('presetStatus');
+  const loadPresets=()=>{ try{ return JSON.parse(localStorage.getItem(PKEY))||{}; }catch{ return {}; } };
+  const storePresets=o=>{ try{ localStorage.setItem(PKEY,JSON.stringify(o)); }catch{} };
+  function refreshPresets(selected){
+    const o=loadPresets();
+    presetSel.innerHTML='<option value="">Choose a table…</option>'+
+      Object.keys(o).sort().map(n=>`<option value="${n.replace(/"/g,'&quot;')}">${n.replace(/</g,'&lt;')} · ${fmt(o[n].reduce((a,r)=>a+r.breathe+r.hold,0))}</option>`).join('');
+    presetSel.value=selected||'';
+  }
+  const flash=t=>{ presetStatus.textContent=t; };
+  $('savePreset').onclick=()=>{
+    const rs=readRows(); if(!rs.length){ flash('Add a row first.'); return; }
+    const name=(prompt('Table name (테이블 이름)', presetSel.value||'')||'').trim(); if(!name) return;
+    const o=loadPresets(); o[name]=rs; storePresets(o); refreshPresets(name); flash(`Saved "${name}".`);
+  };
+  $('deletePreset').onclick=()=>{
+    const name=presetSel.value; if(!name){ flash('Choose a table to delete.'); return; }
+    if(!confirm(`Delete "${name}"?`)) return;
+    const o=loadPresets(); delete o[name]; storePresets(o); refreshPresets(''); flash(`Deleted "${name}".`);
+  };
+  presetSel.onchange=()=>{ const o=loadPresets(); const rs=o[presetSel.value]; if(rs){ setRows(rs); flash(`Loaded "${presetSel.value}".`); } };
+  // share link: table encoded in the URL hash, no storage needed
+  const encodeRows=rs=>rs.map(r=>`${r.breathe}-${r.hold}`).join(',');
+  const decodeRows=str=>str.split(',').map(x=>x.split('-').map(Number)).filter(a=>a.length===2&&a.every(n=>n>=0&&isFinite(n))).map(([b,h])=>({breathe:b,hold:h}));
+  $('copyLink').onclick=async()=>{
+    const rs=readRows(); if(!rs.length){ flash('Add a row first.'); return; }
+    const url=`${location.origin}${location.pathname}#t=${encodeRows(rs)}`;
+    try{ await navigator.clipboard.writeText(url); flash('Link copied. Open it on any device to load this table.'); }
+    catch{ prompt('Copy this link', url); }
+  };
   [...Object.values(S), ...markBoxes].forEach(el=>el.addEventListener('change', save));
 
   // ---------- audio ----------
@@ -353,16 +403,21 @@
   }
   // pre-recorded clips in ./sounds (Piper TTS, LibriTTS voice, CC BY 4.0)
   const CLIPS=['breathe','hold','60','30','10','5','4','3','2','1','done'];
-  const src={}; CLIPS.forEach(n=>src[n]=`sounds/${n}.mp3`);
-  // prefetch into memory so playback is instant; keep the plain URL if fetch fails
+  const src={};
   const voiceStatus=$('voiceStatus');
-  let loadedClips=0;
-  Promise.all(CLIPS.map(n=>fetch(src[n]).then(r=>r.ok?r.blob():Promise.reject(r.status)).then(b=>{src[n]=URL.createObjectURL(b); loadedClips++;}).catch(()=>{})))
-    .then(()=>{
-      if(loadedClips===CLIPS.length){ voiceStatus.textContent='Voice files ready'; }
-      else { voiceStatus.classList.add('bad');
-        voiceStatus.textContent=`Voice files not found (${loadedClips}/${CLIPS.length}) — expected at ${new URL('sounds/', location.href).pathname}. Beep only.`; }
-    });
+  // prefetch a voice set into memory so playback is instant; keep the plain URL if fetch fails
+  function loadVoiceSet(folder){
+    let loaded=0;
+    CLIPS.forEach(n=>src[n]=`${folder}/${n}.mp3`);
+    voiceStatus.className='status'; voiceStatus.textContent='Loading voice files…';
+    Promise.all(CLIPS.map(n=>fetch(`${folder}/${n}.mp3`).then(r=>r.ok?r.blob():Promise.reject(r.status)).then(b=>{src[n]=URL.createObjectURL(b); loaded++;}).catch(()=>{})))
+      .then(()=>{
+        if(loaded===CLIPS.length){ voiceStatus.textContent='Voice files ready'; }
+        else { voiceStatus.classList.add('bad');
+          voiceStatus.textContent=`Voice files not found (${loaded}/${CLIPS.length}) — expected at ${new URL(folder+'/', location.href).pathname}. Beep only.`; }
+      });
+  }
+  S.voiceSet.addEventListener('change',()=>loadVoiceSet(S.voiceSet.value));
   // one shared element: unlocked by the first play() inside the Start tap, then reusable (iOS)
   const player=new Audio(); player.preload='auto';
   let onEnded=null;
@@ -372,7 +427,7 @@
   function speak(name, then){
     if(!S.voice.checked || !src[name]) return false;
     stopClips(); onEnded=then||null;
-    player.src=src[name]; player.currentTime=0;
+    player.src=src[name];
     player.play().catch(()=>{ onEnded=null; beep(880,0.12); });
     return true;
   }
@@ -434,16 +489,25 @@
     const p=plan[step];
     const next=Math.ceil((endAt-Date.now())/1000);
     if(next!==remaining){
+      const prev=remaining;            // may be more than 1s ago if the browser throttled timers
       remaining=Math.max(0,next);
-      const marks=new Set(markBoxes.filter(b=>b.checked && b.dataset.phase===p.type).map(b=>+b.dataset.mark));
-      if(remaining>0 && remaining!==stepLen){
-        if(S.final.checked && remaining<=3) { S.voice.checked ? speak(String(remaining)) : beep(p.type==='hold'?740:988,0.08); }
-        else if(marks.has(remaining)) announce(remaining, p.type==='hold');
+      if(remaining>0){
+        if(S.final.checked && remaining<=3){ S.voice.checked ? speak(String(remaining)) : beep(p.type==='hold'?740:988,0.08); }
+        else {
+          // announce any mark we crossed since the last tick, not just an exact match
+          const passed=markBoxes
+            .filter(b=>b.checked && b.dataset.phase===p.type)
+            .map(b=>+b.dataset.mark)
+            .filter(m=>m<prev && m>=remaining && m!==stepLen);
+          if(passed.length) announce(Math.min(...passed), p.type==='hold');
+        }
       }
       render();
       if(remaining<=0){ beginStep(); }
     }
-    timerId=setTimeout(tick, 100);
+    // wake up just after the next whole second instead of polling blindly
+    const wait=((endAt-Date.now())%1000+1000)%1000+15;
+    timerId=setTimeout(tick, Math.min(wait,1000));
   }
 
   async function start(){
@@ -490,7 +554,13 @@
 
   // ---------- init ----------
   const saved=load();
-  if(saved && saved.rows && saved.rows.length){
+  const hashRows=(location.hash.match(/#t=([0-9,\-]+)/)||[])[1];
+  if(hashRows && decodeRows(hashRows).length){
+    decodeRows(hashRows).forEach(r=>addRow(r.breathe,r.hold));
+    Object.entries((saved&&saved.settings)||{}).forEach(([k,v])=>{ if(S[k]){ if(S[k].type==='checkbox') S[k].checked=v; else S[k].value=v; } });
+    if(saved && Array.isArray(saved.marks)) markBoxes.forEach(b=>b.checked=saved.marks.includes(b.dataset.phase+':'+b.dataset.mark));
+    history.replaceState(null,'',location.pathname);
+  } else if(saved && saved.rows && saved.rows.length){
     saved.rows.forEach(r=>addRow(r.breathe,r.hold));
     Object.entries(saved.settings||{}).forEach(([k,v])=>{ if(S[k]){ if(S[k].type==='checkbox') S[k].checked=v; else S[k].value=v; } });
     if(Array.isArray(saved.marks)) markBoxes.forEach(b=>b.checked=saved.marks.includes(b.dataset.phase+':'+b.dataset.mark));
@@ -498,6 +568,8 @@
     // default CO2 table: breathe time decreases (기본 CO2 테이블)
     [[120,60],[105,60],[90,60],[75,60],[60,60],[45,60]].forEach(([b,h])=>addRow(b,h));
   }
+  refreshPresets('');
+  loadVoiceSet(S.voiceSet.value);
   render();
 })();
 </script>

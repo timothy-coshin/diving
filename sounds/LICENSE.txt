@@ -1,2 +1,2 @@
-Voice clips generated with Piper TTS (MIT) using the en_US-libritts-high voice.
-Training data: LibriTTS (http://www.openslr.org/60/), licensed CC BY 4.0.
+Voice clips generated with Piper TTS (MIT), en_US-libritts-high voice, speaker 21.
+Training data: LibriTTS (http://www.openslr.org/60/), CC BY 4.0.
